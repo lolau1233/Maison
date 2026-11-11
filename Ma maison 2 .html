@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ma maison</title>
+<style>
+:root{--bg:#f4f1ec;--card:#fff;--ink:#1f2328;--mute:#6b7178;--acc:#2f6f5e;--line:#e3ded6;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15181a;--card:#1f2326;--ink:#ecebe8;--mute:#9aa0a6;--acc:#5fb59d;--line:#2d3236;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#15181a;--card:#1f2326;--ink:#ecebe8;--mute:#9aa0a6;--acc:#5fb59d;--line:#2d3236;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.4 -apple-system,system-ui,"Helvetica Neue",Arial,sans-serif}
+.wrap{max-width:900px;margin:0 auto;padding:16px}
+header{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;margin-bottom:12px}
+h1{font-size:28px;margin:0}
+#clock{font-size:34px;font-weight:600;color:var(--acc)}
+#date{color:var(--mute);text-transform:capitalize}
+nav{display:flex;gap:8px;overflow-x:auto;margin:12px 0}
+nav button{flex:1;min-width:90px;padding:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;font-size:16px}
+nav button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.row{display:flex;gap:8px;margin-bottom:12px}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;min-width:0}
+input[type=text]{flex:1}
+textarea{width:100%;min-height:50vh}
+.add{background:var(--acc);color:#fff;border:0;border-radius:10px;padding:10px 16px;font-size:16px}
+ul{list-style:none;margin:0;padding:0}
+li{display:flex;align-items:center;gap:10px;padding:12px 4px;border-bottom:1px solid var(--line)}
+li:last-child{border:0}
+li .t{flex:1}
+li.done .t{text-decoration:line-through;color:var(--mute)}
+.x{background:none;border:0;color:var(--mute);font-size:22px;padding:4px 10px}
+.chk{width:26px;height:26px;border:2px solid var(--acc);border-radius:50%;background:none;flex:none}
+li.done .chk{background:var(--acc)}
+.mute{color:var(--mute);font-size:14px}
+.empty{color:var(--mute);padding:8px 4px}
+.day{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px}.day.off{opacity:.5}.dh{display:flex;flex-direction:column;cursor:pointer}.btns{display:flex;gap:8px;margin-top:8px}.btns button{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:8px 12px;font-size:15px}h2{font-size:19px;margin:18px 0 8px}ol{padding-left:20px;margin:6px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header><div><h1>Ma maison</h1><div id="date"></div></div><div id="clock"></div></header>
+<nav id="tabs"></nav>
+<div class="card" id="view"></div>
+<p class="mute">Données enregistrées sur cet iPad uniquement.</p>
+</div>
+<script>
+var KEY='maison-v1',S={courses:[],taches:[],notes:'',tab:'repas',repas:{p:2,sw:{},sk:{},ck:{},rop:-1}};
+try{var r=localStorage.getItem(KEY);if(r)S=Object.assign(S,JSON.parse(r))}catch(e){}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+var TABS=[['repas','Repas'],['recettes','Recettes'],['courses','Courses'],['taches','Tâches'],['notes','Notes']];
+function tick(){var d=new Date();
+document.getElementById('clock').textContent=d.toLocaleTimeString('fr-CH',{hour:'2-digit',minute:'2-digit'});
+document.getElementById('date').textContent=d.toLocaleDateString('fr-CH',{weekday:'long',day:'numeric',month:'long'})}
+tick();setInterval(tick,15000);
+function tabs(){document.getElementById('tabs').innerHTML=TABS.map(function(t){
+return '<button class="'+(S.tab===t[0]?'on':'')+'" onclick="go(\''+t[0]+'\')">'+t[1]+'</button>'}).join('')}
+function go(t){S.tab=t;save();render()}
+function listView(k,ph){
+var h='<div class="row"><input type="text" id="in" placeholder="'+ph+'" onkeydown="if(event.key===\'Enter\')add(\''+k+'\')"><button class="add" onclick="add(\''+k+'\')">Ajouter</button></div>';
+var a=S[k];
+h+=a.length?'<ul>'+a.map(function(x,i){return '<li class="'+(x.d?'done':'')+'"><button class="chk" onclick="tog(\''+k+'\','+i+')"></button><span class="t">'+esc(x.t)+'</span><button class="x" onclick="del(\''+k+'\','+i+')">×</button></li>'}).join('')+'</ul>':'<div class="empty">Rien pour l’instant.</div>';
+if(a.some(function(x){return x.d}))h+='<p><button class="add" onclick="clr(\''+k+'\')">Retirer les éléments cochés</button></p>';
+return h}
+function add(k){var i=document.getElementById('in'),v=i.value.trim();if(!v)return;S[k].push({t:v,d:false});save();render();document.getElementById('in').focus()}
+function tog(k,i){S[k][i].d=!S[k][i].d;save();render()}
+function del(k,i){S[k].splice(i,1);save();render()}
+function clr(k){S[k]=S[k].filter(function(x){return !x.d});save();render()}
+function notesView(){return '<textarea id="n" placeholder="Notes libres…" oninput="S.notes=this.value;save()">'+esc(S.notes)+'</textarea>'}
+var R=[
+['Pâtes carbonara','Pâtes|100|g;Lardons|60|g;Œufs|1|pc;Parmesan|20|g','Cuire les pâtes.|Faire dorer les lardons.|Mélanger œuf et parmesan, puis assembler hors du feu.'],
+['Poulet rôti et pommes de terre','Cuisses de poulet|1|pc;Pommes de terre|200|g;Huile d’olive|10|ml','Couper les pommes de terre en quartiers.|Enfourner avec le poulet et l’huile, 40 min à 200 °C.'],
+['Risotto aux champignons','Riz à risotto|80|g;Champignons|100|g;Oignons|0.5|pc;Bouillon|300|ml;Parmesan|20|g','Faire revenir l’oignon et les champignons.|Ajouter le riz, puis le bouillon louche par louche.|Finir avec le parmesan.'],
+['Saumon, riz et brocoli','Filet de saumon|1|pc;Riz|70|g;Brocoli|150|g;Citron|0.25|pc','Cuire le riz et le brocoli.|Poêler le saumon 4 min par côté.|Servir avec du citron.'],
+['Chili con carne','Bœuf haché|120|g;Haricots rouges|100|g;Tomates concassées|150|g;Oignons|0.5|pc;Riz|70|g','Saisir l’oignon et la viande.|Ajouter tomates et haricots, mijoter 25 min.|Servir avec le riz.'],
+['Omelette et salade','Œufs|3|pc;Salade verte|60|g;Tomates|1|pc;Pain|50|g','Battre et cuire les œufs.|Préparer la salade et les tomates.'],
+['Curry de pois chiches','Pois chiches|120|g;Lait de coco|100|ml;Épinards|80|g;Oignons|0.5|pc;Riz|70|g;Pâte de curry|10|g','Faire revenir l’oignon et la pâte de curry.|Ajouter pois chiches, lait de coco et épinards, 10 min.|Servir avec le riz.'],
+['Gratin de pâtes au jambon','Pâtes|100|g;Jambon|2|pc;Crème|50|ml;Gruyère|40|g','Cuire les pâtes.|Mélanger avec jambon et crème, couvrir de gruyère.|Gratiner 15 min.'],
+['Steak, frites au four et haricots verts','Steak|1|pc;Pommes de terre|200|g;Haricots verts|120|g;Huile d’olive|10|ml','Couper et enfourner les frites 30 min à 220 °C.|Cuire les haricots.|Poêler le steak.'],
+['Soupe de légumes et tartines','Carottes|100|g;Pommes de terre|100|g;Poireaux|0.5|pc;Bouillon|300|ml;Pain|60|g;Fromage|30|g','Couper les légumes et les cuire dans le bouillon 25 min.|Mixer.|Servir avec des tartines au fromage.'],
+['Tacos au poulet','Tortillas|2|pc;Blanc de poulet|120|g;Poivrons|0.5|pc;Fromage râpé|30|g;Crème|30|ml','Faire sauter poulet et poivron.|Garnir les tortillas avec fromage et crème.'],
+['Spaghetti bolognaise','Spaghetti|100|g;Bœuf haché|100|g;Tomates concassées|150|g;Oignons|0.5|pc;Carottes|0.5|pc','Saisir oignon, carotte et viande.|Ajouter les tomates, mijoter 20 min.|Servir sur les spaghetti.'],
+['Wok de légumes et nouilles','Nouilles|100|g;Poivrons|0.5|pc;Carottes|1|pc;Sauce soja|15|ml;Œufs|1|pc','Cuire les nouilles.|Faire sauter les légumes et l’œuf.|Ajouter nouilles et sauce soja.'],
+['Pizza maison','Pâte à pizza|1|pc;Mozzarella|60|g;Tomates concassées|60|g;Jambon|2|pc','Étaler la pâte et la napper de tomates.|Ajouter jambon et mozzarella.|Cuire 12 min à 230 °C.'],
+['Gnocchis crème et épinards','Gnocchis|200|g;Épinards|80|g;Crème|50|ml;Parmesan|15|g','Cuire les gnocchis.|Faire tomber les épinards avec la crème.|Mélanger, parmesan par-dessus.']
+];
+function dstr(d){return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)}
+function ridx(d){var n=Math.floor(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())/864e5);return (n*4+(S.repas.sw[dstr(d)]||0))%R.length}
+function days(){var a=[],t=new Date();for(var i=0;i<7;i++)a.push(new Date(t.getFullYear(),t.getMonth(),t.getDate()+i));return a}
+function fmt(q,u){if(u==='pc')return String(Math.ceil(q-1e-9));if(u==='g'&&q>=1000)return (q/1000).toFixed(1).replace('.',',')+' kg';if(u==='ml'&&q>=1000)return (q/1000).toFixed(1).replace('.',',')+' l';return Math.round(q)+' '+u}
+function shop(){var m={};days().forEach(function(d){if(S.repas.sk[dstr(d)])return;R[ridx(d)][1].split(';').forEach(function(x){var p=x.split('|'),k=p[0]+'|'+p[2];m[k]=(m[k]||0)+parseFloat(p[1])*S.repas.p})});
+return Object.keys(m).sort().map(function(k){var p=k.split('|');return{k:k,n:p[0],q:m[k],u:p[1]}})}
+function chg(s){S.repas.sw[s]=(S.repas.sw[s]||0)+1;save();render()}
+function skp(s){S.repas.sk[s]=!S.repas.sk[s];save();render()}
+function rck(k){k=decodeURIComponent(k);S.repas.ck[k]=!S.repas.ck[k];save();render()}
+function pselect(){return '<div class="row"><span style="align-self:center">Personnes :</span><select onchange="S.repas.p=+this.value;save();render()">'+[1,2,3,4,5,6].map(function(n){return '<option'+(n===S.repas.p?' selected':'')+'>'+n+'</option>'}).join('')+'</select></div>'}
+function shopList(){var it=shop();return it.length?'<ul>'+it.map(function(x){var c=S.repas.ck[x.k];return '<li class="'+(c?'done':'')+'"><button class="chk" onclick="rck(\''+encodeURIComponent(x.k)+'\')"></button><span class="t">'+esc(x.n)+'</span><span class="mute">'+fmt(x.q,x.u)+'</span></li>'}).join('')+'</ul>':'<div class="empty">Aucun repas prévu.</div>'}
+function repasView(){var P=S.repas,h=pselect()+'<p class="mute">Un repas par jour sur 7 jours. Ta liste de courses suit automatiquement.</p>';
+days().forEach(function(d,i){var s=dstr(d),k=ridx(d),off=P.sk[s],lab=i===0?'Aujourd’hui':d.toLocaleDateString('fr-CH',{weekday:'long',day:'numeric',month:'long'});
+h+='<div class="day'+(off?' off':'')+'"><div class="dh" onclick="voir('+k+')"><span class="mute" style="text-transform:capitalize">'+lab+(off?' (repas sauté)':'')+'</span><b>'+esc(R[k][0])+'</b></div><div class="btns"><button onclick="voir('+k+')">Voir la recette</button><button onclick="chg(\''+s+'\')">Autre idée</button><button onclick="skp(\''+s+'\')">'+(off?'Remettre':'Pas ce jour')+'</button></div></div>'});
+return h}
+function recettesView(){var P=S.repas,h=pselect();
+R.forEach(function(r,k){h+='<div class="day"><div class="dh" onclick="orec('+k+')"><b>'+esc(r[0])+'</b></div>';
+if(P.rop===k){h+='<ul>'+r[1].split(';').map(function(x){var p=x.split('|');return '<li style="padding:6px 4px"><span class="t">'+esc(p[0])+'</span><span class="mute">'+fmt(parseFloat(p[1])*P.p,p[2])+'</span></li>'}).join('')+'</ul><ol>'+r[2].split('|').map(function(x){return '<li style="display:list-item;border:0;padding:2px 0">'+esc(x)+'</li>'}).join('')+'</ol>'}
+h+='</div>'});return h}
+function coursesView(){return '<h2 style="margin-top:0">Pour les repas de la semaine</h2>'+shopList()+'<h2>Ma liste</h2>'+listView('courses','Ajouter un article…')}
+function voir(k){S.repas.rop=k;go('recettes')}
+function orec(k){S.repas.rop=S.repas.rop===k?-1:k;save();render()}
+function render(){if(!TABS.some(function(x){return x[0]===S.tab}))S.tab='repas';tabs();var v=document.getElementById('view');
+if(S.tab==='courses')v.innerHTML=coursesView();
+else if(S.tab==='recettes')v.innerHTML=recettesView();
+else if(S.tab==='taches')v.innerHTML=listView('taches','Ajouter une tâche (ménage, entretien…)');
+else if(S.tab==='repas')v.innerHTML=repasView();
+else if(S.tab==='notes')v.innerHTML=notesView();}
+render();
+</script>
+</body>
+</html>
